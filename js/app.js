@@ -1073,13 +1073,13 @@ async function viewLogin(_, params) {
   </div></div>`);
   bindSegmented($('#roleSeg'), (v) => { role = v; $('#lRole').textContent = v; $('#toReg').href = `#/registro?rol=${v}`; });
   $('#loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault(); const f = new FormData(e.target); $('#lErr').textContent = ''; $('#lBtn').disabled = true;
+    e.preventDefault(); const f = new FormData(e.target); $('#lErr').textContent = ''; busy($('#lBtn'), 'Entrando…');
     try {
       const u = await store.signIn(f.get('id'), f.get('pw'));
       if (u.role !== 'admin' && u.role !== role) { await store.signOut(); throw new Error(`Esta cuenta es de ${u.role}. Selecciona “Soy ${u.role}” arriba.`); }
       me = u; await refreshFavs(); toast(`Hola, ${me.name.split(' ')[0]}`);
       go(params.get('next') || '#/');
-    } catch (err) { $('#lErr').textContent = err.message; $('#lBtn').disabled = false; }
+    } catch (err) { $('#lErr').textContent = err.message; busy($('#lBtn')); }
   });
 }
 
@@ -1115,13 +1115,29 @@ async function viewRegister(_, params) {
     e.preventDefault(); const f = new FormData(e.target); $('#rErr').textContent = '';
     if (role === 'empresa' && !f.get('bname').trim()) return ($('#rErr').textContent = 'Indica el nombre de la empresa');
     if (f.get('phone').replace(/\D/g, '').length < 9) return ($('#rErr').textContent = 'Introduce un teléfono válido');
-    $('#rBtn').disabled = true;
+    busy($('#rBtn'), 'Creando tu cuenta…');
     try {
       me = await store.signUp({ role, name: f.get('name').trim(), email: f.get('email').trim(), phone: f.get('phone').trim(), password: f.get('pw'), business: role === 'empresa' ? { name: f.get('bname').trim(), category: f.get('category'), city: f.get('city').trim() } : null });
       await refreshBusinesses(); toast('Cuenta creada');
       go(role === 'empresa' ? '#/panel' : '#/');
-    } catch (err) { $('#rErr').textContent = err.message; $('#rBtn').disabled = false; }
+    } catch (err) {
+      busy($('#rBtn'));
+      if (err.confirm) {
+        $('.auth').innerHTML = `<div class="empty-icon">${I.mail}</div><h1>Revisa tu correo</h1>
+          <p class="muted" style="text-align:center;margin:10px 0 22px">Hemos enviado un enlace de confirmación a <b>${esc(f.get('email'))}</b>. Ábrelo una sola vez y después inicia sesión.</p>
+          <a class="btn primary" style="width:100%" href="#/entrar?rol=${role}">Ir a iniciar sesión</a>
+          <p class="subtle" style="text-align:center;margin-top:14px">Si no lo ves en unos minutos, mira en la carpeta de spam.</p>`;
+        return;
+      }
+      $('#rErr').textContent = err.message;
+    }
   });
+}
+
+// Botón con estado de carga
+function busy(btn, label) {
+  if (label) { btn.dataset.label = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spin"></span>${label}`; }
+  else { btn.disabled = false; if (btn.dataset.label) btn.innerHTML = btn.dataset.label; }
 }
 
 // ───────────────────────── tiempo real ─────────────────────────
@@ -1143,6 +1159,13 @@ async function boot() {
   applyTheme();
   store = await createStore();
   me = await store.user();
+  // Vuelta desde el enlace del email de confirmación
+  if (/^#(error|access_token)=/.test(location.hash)) {
+    const p = new URLSearchParams(location.hash.slice(1));
+    const err = p.get('error');
+    history.replaceState(null, '', location.pathname + (err && !me ? '#/entrar' : '#/'));
+    setTimeout(() => toast(err ? (p.get('error_code') === 'otp_expired' ? 'Ese enlace ya se usó o ha caducado. Si ya confirmaste tu email, inicia sesión.' : 'No se pudo validar el enlace.') : 'Email confirmado. ¡Bienvenido!', 5000), 400);
+  }
   await Promise.all([refreshBusinesses(), refreshFavs()]);
   store.subscribe(onData);
   window.addEventListener('hashchange', route);

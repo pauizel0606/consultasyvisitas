@@ -536,3 +536,8 @@ body { background: var(--bg); }
 :root[data-theme="dark"] .sheet.glass, :root[data-theme="dark"] .menu.glass { background: rgba(44,44,46,.92); }
 :root[data-theme="dark"] .glass { background: #1c1c1e; }
 :root[data-theme="dark"] .feature.glass, :root[data-theme="dark"] .step.glass, :root[data-theme="dark"] .banner.glass { background: #1c1c1e; }
+
+.spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn[disabled] .spin { opacity: 1; }
+.btn.primary[disabled] { opacity: .75; }

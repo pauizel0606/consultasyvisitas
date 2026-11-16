@@ -278,6 +278,15 @@ class LocalStore {
 // ═════════════════════════════════════════════════════════════
 // SUPABASE (sincronización real entre dispositivos)
 // ═════════════════════════════════════════════════════════════
+const ES_ERRORS = [
+  [/rate limit/i, 'Se han enviado demasiados emails de confirmación. Inténtalo de nuevo más tarde.'],
+  [/already registered|already exists/i, 'Ya existe una cuenta con ese email'],
+  [/password should be at least/i, 'La contraseña debe tener al menos 6 caracteres'],
+  [/invalid email|email address .* is invalid/i, 'El email no es válido'],
+  [/email not confirmed/i, 'Tienes que confirmar tu email antes de entrar. Revisa tu correo.'],
+];
+const toEs = (msg = '') => (ES_ERRORS.find(([re]) => re.test(msg)) || [, msg])[1];
+
 class SupabaseStore {
   mode = 'cloud';
   constructor(sb) {
@@ -307,10 +316,10 @@ class SupabaseStore {
   async signUp({ role, name, email, phone, password, business }) {
     const { data, error } = await this.sb.auth.signUp({
       email: email.trim().toLowerCase(), password,
-      options: { data: { role, name, phone: normPhone(phone), business_name: business?.name || '', category: business?.category || 'otros', city: business?.city || '' } },
+      options: { emailRedirectTo: location.origin + location.pathname, data: { role, name, phone: normPhone(phone), business_name: business?.name || '', category: business?.category || 'otros', city: business?.city || '' } },
     });
-    if (error) throw new Error(error.message);
-    if (!data.session) throw new Error('Te hemos enviado un email para confirmar la cuenta. Ábrelo y después inicia sesión.');
+    if (error) throw new Error(toEs(error.message));
+    if (!data.session) { const e = new Error('confirm'); e.confirm = true; throw e; }
     this.me = undefined; return this.user();
   }
   async signIn(identifier, password) {
@@ -320,7 +329,7 @@ class SupabaseStore {
       if (!email) throw new Error('No hay ninguna cuenta con ese teléfono');
     }
     const { error } = await this.sb.auth.signInWithPassword({ email, password });
-    if (error) throw new Error('Email/teléfono o contraseña incorrectos');
+    if (error) throw new Error(/not confirmed/i.test(error.message) ? toEs(error.message) : 'Email/teléfono o contraseña incorrectos');
     this.me = undefined; return this.user();
   }
   async signOut() { await this.sb.auth.signOut(); this.me = null; }
