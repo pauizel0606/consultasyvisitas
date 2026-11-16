@@ -28,7 +28,8 @@ export async function createStore() {
 // ═════════════════════════════════════════════════════════════
 // MODO DEMO (localStorage)
 // ═════════════════════════════════════════════════════════════
-const KEY = 'cyv_db_v1';
+const KEY = 'cyv_db_v2';
+export const DEMO_ADMIN = { email: 'admin@consultasyvisitas.com', password: 'CyV-Admin-2026' };
 const SKEY = 'cyv_session_v1';
 
 function seedDb() {
@@ -44,7 +45,7 @@ function seedDb() {
     db.businesses.push({
       id: bid, owner_id: ownerId, name: s.name, category: s.category, description: s.description,
       address: s.address, city: s.city, phone, email, services: s.services, hours: s.hours || DEFAULT_HOURS,
-      slot_minutes: s.slot, tags: s.tags, auto_reply: `¡Hola! Gracias por escribir a ${s.name}. Te respondemos en breve 🌿`,
+      slot_minutes: s.slot, tags: s.tags, auto_reply: `¡Hola! Gracias por escribir a ${s.name}. Te respondemos en breve.`,
       rating_avg: 0, rating_count: 0, created_at: nowISO(),
     });
     const n = 1 + (i % 3);
@@ -52,6 +53,7 @@ function seedDb() {
       db.reviews.push({ id: uid(), business_id: bid, client_id: 'seed-' + k, author_name: authors[(i + k) % authors.length], rating: k === 2 ? 4 : 5, comment: comments[(i + k) % comments.length], created_at: new Date(Date.now() - (k + 1) * 864e5 * (i + 2)).toISOString() });
     }
   });
+  db.users.push({ id: uid(), role: 'admin', name: 'Administrador', email: DEMO_ADMIN.email, phone: '', password: DEMO_ADMIN.password });
   db.users.push({ id: uid(), role: 'cliente', name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+34611222333', password: 'demo1234' });
   recalcRatings(db);
   return db;
@@ -80,6 +82,10 @@ class LocalStore {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(KEY)); } catch {}
     if (!d) { d = seedDb(); localStorage.setItem(KEY, JSON.stringify(d)); }
+    if (!d.users.some((u) => u.role === 'admin')) {
+      d.users.push({ id: uid(), role: 'admin', name: 'Administrador', email: DEMO_ADMIN.email, phone: '', password: DEMO_ADMIN.password });
+      localStorage.setItem(KEY, JSON.stringify(d));
+    }
     return d;
   }
   _save() { localStorage.setItem(KEY, JSON.stringify(this.db)); }
@@ -224,7 +230,7 @@ class LocalStore {
     const convId = await this.openConversation({ businessId, clientId: me.id });
     const a = { id: uid(), business_id: businessId, client_id: me.id, conversation_id: convId, starts_at: startsAt, service, note, status: 'pendiente', created_at: nowISO() };
     this.db.appointments.push(a);
-    await this.sendMessage(convId, `📅 Solicitud de cita${service ? ': ' + service : ''}`, 'appointment', { appointment_id: a.id });
+    await this.sendMessage(convId, `Solicitud de cita${service ? ': ' + service : ''}`, 'appointment', { appointment_id: a.id });
     return a;
   }
   async setAppointmentStatus(id, status, text) {
@@ -232,6 +238,42 @@ class LocalStore {
     const c = this.db.conversations.find((c) => c.id === a.conversation_id);
     if (c) { this._insertMessage(c, this._me().id, text, 'system', { appointment_id: id }); }
     this._commit({ table: 'appointments' });
+  }
+
+  // ── Administración
+  _requireAdmin() { const me = this._me(); if (me?.role !== 'admin') throw new Error('Solo para administradores'); return me; }
+  async listUsers() {
+    this._requireAdmin();
+    return this.db.users.map((u) => this._profile(u)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }
+  _purgeBusiness(id) {
+    const convs = new Set(this.db.conversations.filter((c) => c.business_id === id).map((c) => c.id));
+    this.db.messages = this.db.messages.filter((m) => !convs.has(m.conversation_id));
+    this.db.conversations = this.db.conversations.filter((c) => c.business_id !== id);
+    this.db.appointments = this.db.appointments.filter((a) => a.business_id !== id);
+    this.db.reviews = this.db.reviews.filter((r) => r.business_id !== id);
+    this.db.favorites = this.db.favorites.filter((f) => f.business_id !== id);
+    this.db.businesses = this.db.businesses.filter((b) => b.id !== id);
+  }
+  async deleteBusiness(id) { this._requireAdmin(); this._purgeBusiness(id); this._commit({ table: 'businesses' }); }
+  async deleteUser(id) {
+    const me = this._requireAdmin();
+    if (id === me.id) throw new Error('No puedes eliminar tu propia cuenta de administrador');
+    this.db.businesses.filter((b) => b.owner_id === id).forEach((b) => this._purgeBusiness(b.id));
+    const convs = new Set(this.db.conversations.filter((c) => c.client_id === id).map((c) => c.id));
+    this.db.messages = this.db.messages.filter((m) => !convs.has(m.conversation_id));
+    this.db.conversations = this.db.conversations.filter((c) => c.client_id !== id);
+    this.db.appointments = this.db.appointments.filter((a) => a.client_id !== id);
+    this.db.reviews = this.db.reviews.filter((r) => r.client_id !== id);
+    this.db.favorites = this.db.favorites.filter((f) => f.user_id !== id);
+    this.db.users = this.db.users.filter((u) => u.id !== id);
+    recalcRatings(this.db);
+    this._commit({ table: 'businesses' });
+  }
+  async adminStats() {
+    this._requireAdmin();
+    const d = this.db;
+    return { clients: d.users.filter((u) => u.role === 'cliente').length, companies: d.users.filter((u) => u.role === 'empresa').length, businesses: d.businesses.length, conversations: d.conversations.length, messages: d.messages.length, appointments: d.appointments.length };
   }
 
   // ── Reseñas y favoritos
@@ -375,13 +417,18 @@ class SupabaseStore {
     if (taken.length) throw new Error('Esa hora acaba de ocuparse, elige otra');
     const convId = await this.openConversation({ businessId, clientId: me.id });
     const a = this._ok(await this.sb.from('appointments').insert({ business_id: businessId, client_id: me.id, conversation_id: convId, starts_at: startsAt, service, note }).select().single());
-    await this.sendMessage(convId, `📅 Solicitud de cita${service ? ': ' + service : ''}`, 'appointment', { appointment_id: a.id });
+    await this.sendMessage(convId, `Solicitud de cita${service ? ': ' + service : ''}`, 'appointment', { appointment_id: a.id });
     return a;
   }
   async setAppointmentStatus(id, status, text) {
     const a = this._ok(await this.sb.from('appointments').update({ status }).eq('id', id).select().single());
     if (a.conversation_id) await this.sendMessage(a.conversation_id, text, 'system', { appointment_id: id });
   }
+
+  async listUsers() { return this._ok(await this.sb.from('profiles').select('*').order('name')); }
+  async deleteBusiness(id) { this._ok(await this.sb.from('businesses').delete().eq('id', id)); }
+  async deleteUser(id) { this._ok(await this.sb.rpc('admin_delete_user', { uid: id })); }
+  async adminStats() { return this._ok(await this.sb.rpc('admin_stats')); }
 
   async listReviews(businessId) { return this._ok(await this.sb.from('reviews').select('*').eq('business_id', businessId).order('created_at', { ascending: false })); }
   async addReview(businessId, rating, comment) {

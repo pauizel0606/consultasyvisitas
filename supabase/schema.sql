@@ -8,7 +8,7 @@ create extension if not exists pgcrypto;
 -- ── Tablas ──────────────────────────────────────────────────────
 create table if not exists public.profiles (
   id uuid primary key references auth.users on delete cascade,
-  role text not null default 'cliente' check (role in ('cliente', 'empresa')),
+  role text not null default 'cliente',
   name text not null default '',
   email text,
   phone text default '',
@@ -93,7 +93,40 @@ create table if not exists public.favorites (
   primary key (user_id, business_id)
 );
 
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check check (role in ('cliente', 'empresa', 'admin'));
+
 -- ── Funciones auxiliares ────────────────────────────────────────
+create or replace function public.is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from profiles where id = auth.uid() and role = 'admin');
+$$;
+
+-- Administración: eliminar una cuenta (y su empresa, chats, citas...)
+create or replace function public.admin_delete_user(uid uuid) returns void
+language plpgsql security definer set search_path = public, auth as $$
+begin
+  if not public.is_admin() then raise exception 'Solo para administradores'; end if;
+  if uid = auth.uid() then raise exception 'No puedes eliminar tu propia cuenta'; end if;
+  delete from public.businesses where owner_id = uid;
+  delete from auth.users where id = uid;
+end $$;
+
+create or replace function public.admin_stats() returns json
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Solo para administradores'; end if;
+  return json_build_object(
+    'clients', (select count(*) from profiles where role = 'cliente'),
+    'companies', (select count(*) from profiles where role = 'empresa'),
+    'businesses', (select count(*) from businesses),
+    'conversations', (select count(*) from conversations),
+    'messages', (select count(*) from messages),
+    'appointments', (select count(*) from appointments));
+end $$;
+grant execute on function public.admin_delete_user(uuid) to authenticated;
+grant execute on function public.admin_stats() to authenticated;
+
 create or replace function public.is_owner(bid uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from businesses where id = bid and owner_id = auth.uid());
@@ -135,7 +168,7 @@ language plpgsql security definer set search_path = public as $$
 declare m jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
 begin
   insert into profiles (id, role, name, email, phone)
-  values (new.id, coalesce(nullif(m->>'role', ''), 'cliente'), coalesce(m->>'name', ''), new.email, coalesce(m->>'phone', ''));
+  values (new.id, case when m->>'role' = 'empresa' then 'empresa' else 'cliente' end, coalesce(m->>'name', ''), new.email, coalesce(m->>'phone', ''));
   if m->>'role' = 'empresa' then
     insert into businesses (owner_id, name, category, city, phone, email)
     values (new.id, coalesce(nullif(m->>'business_name', ''), m->>'name', 'Mi empresa'), coalesce(nullif(m->>'category', ''), 'otros'),
@@ -199,6 +232,9 @@ create policy "businesses read" on public.businesses for select using (true);
 drop policy if exists "businesses update own" on public.businesses;
 create policy "businesses update own" on public.businesses for update to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
+drop policy if exists "businesses delete" on public.businesses;
+create policy "businesses delete" on public.businesses for delete to authenticated using (public.is_admin() or owner_id = auth.uid());
+
 drop policy if exists "conversations read" on public.conversations;
 create policy "conversations read" on public.conversations for select to authenticated using (client_id = auth.uid() or public.is_owner(business_id));
 drop policy if exists "conversations insert" on public.conversations;
@@ -234,3 +270,8 @@ create policy "favorites own" on public.favorites for all to authenticated using
 do $$ begin
   alter publication supabase_realtime add table public.messages, public.conversations, public.appointments;
 exception when duplicate_object then null; end $$;
+
+-- ── Crear el administrador ──────────────────────────────────────
+-- 1) Regístrate en la web con el email que quieras usar como admin.
+-- 2) Ejecuta (cambiando el email):
+--    update public.profiles set role = 'admin' where email = 'tu-email@ejemplo.com';

@@ -1,10 +1,16 @@
 # Consultas & Visitas 🌿
 
-Aplicación web para **encontrar negocios, chatear con ellos y agendar visitas**. Diseño sereno inspirado en Apple, con efecto *liquid glass*, modo claro/oscuro automático y animaciones suaves.
+Aplicación web para **encontrar negocios, chatear con ellos y agendar visitas**. Diseño sereno inspirado en Apple, con efecto *liquid glass*, iconos de línea propios (sin emojis), modo claro/oscuro automático y animaciones suaves.
 
 ## Qué incluye
 
-- **Dos tipos de cuenta**: cliente y empresa (con selector “Soy cliente / Soy empresa” al entrar y registrarse).
+- **Tres tipos de cuenta**: cliente, empresa (con selector “Soy cliente / Soy empresa” al entrar y registrarse) y **administrador**.
+- **Inicio distinto según quién entra**:
+  - *Visitante*: presentación de la plataforma, ventajas, cómo funciona y preguntas frecuentes.
+  - *Cliente*: próxima cita, mensajes recientes, accesos rápidos, visitas pendientes de valorar y favoritos.
+  - *Empresa* → **Resumen**: chats por responder (con el tiempo de espera), visitas de hoy en línea temporal, citas por confirmar, citas de los próximos 7 días, últimas reseñas y lo que falta por completar del perfil.
+  - *Administrador* → **Panel de control**: estadísticas y gestión de empresas y cuentas, con permiso para eliminarlas.
+- **Explorar en su propia pestaña**: buscador y categorías.
 - **Inicio de sesión con email o teléfono.**
 - **Chat por teléfono o email**: pulsa *Nuevo* en Mensajes, escribe el teléfono o email de la empresa (o del cliente, si eres empresa) y se abre la conversación. También hay botones directos de *Llamar*, *WhatsApp* y *Email*.
 - **Chats guardados en la cuenta**: al volver a entrar, o desde otro dispositivo con la misma cuenta, ves el mismo historial (con Supabase activado, ver abajo). Mensajes en tiempo real y aviso de no leídos.
@@ -33,6 +39,9 @@ Cuentas de prueba (contraseña `demo1234`):
 |---|---|
 | Cliente | `cliente@demo.com` |
 | Empresa | `empresa1@demo.com` … `empresa16@demo.com` |
+| Administrador | `admin@consultasyvisitas.com` · contraseña `CyV-Admin-2026` |
+
+> La cuenta de administrador del modo demo está en el código fuente (`js/store.js`), así que cualquiera puede verla. No pasa nada porque en modo demo cada navegador tiene sus propios datos. Con Supabase **no existe**: crea tu admin como se explica abajo.
 
 > En modo demo los datos no salen de ese navegador. Para que el mismo chat aparezca en **otro dispositivo**, activa Supabase.
 
@@ -43,7 +52,12 @@ Cuentas de prueba (contraseña `demo1234`):
 3. (Opcional) Ejecuta también [`supabase/seed.sql`](supabase/seed.sql) para tener empresas de ejemplo.
 4. En **Authentication → Sign In / Providers → Email**, desactiva *Confirm email* si quieres que las cuentas funcionen al momento (si lo dejas activo, el usuario debe confirmar su email antes de entrar).
 5. En **Project Settings → API** copia la *Project URL* y la *anon public key* y pégalas en [`js/config.js`](js/config.js).
-6. Sube el cambio a GitHub. Listo: cuentas, chats, citas, reseñas y favoritos quedan en la nube y se sincronizan en tiempo real.
+6. **Crea tu administrador**: regístrate en la web con tu email y ejecuta en el SQL Editor:
+   ```sql
+   update public.profiles set role = 'admin' where email = 'tu-email@ejemplo.com';
+   ```
+   Nadie puede darse el rol de admin desde la web: solo desde el SQL Editor.
+7. Sube el cambio a GitHub. Listo: cuentas, chats, citas, reseñas y favoritos quedan en la nube y se sincronizan en tiempo real.
 
 La *anon key* es pública por diseño; la seguridad la dan las políticas **RLS** incluidas en el schema (cada usuario solo ve sus propios chats y citas).
 
@@ -66,7 +80,7 @@ Se publica con **GitHub Pages** desde la rama `main` (carpeta raíz).
 ```
 index.html          Estructura y navegación
 css/styles.css      Estética (liquid glass, animaciones, modo oscuro)
-js/app.js           Vistas: inicio, explorar, empresa, mensajes, citas, panel, acceso
+js/app.js           Vistas: inicio por rol, resumen de empresa, admin, explorar, mensajes, citas…
 js/store.js         Datos: Supabase (nube) o localStorage (demo), misma interfaz
 js/data.js          Categorías, búsqueda por necesidad y empresas de ejemplo
 js/config.js        Claves de Supabase
