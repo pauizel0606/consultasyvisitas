@@ -1,4 +1,4 @@
-import { createStore, isEmail, DEMO_ADMIN } from './store.js';
+import { createStore, isEmail } from './store.js';
 import { CATEGORIES, catById, inferCategory, normalize, SEARCH_EXAMPLES, QUICK_CLIENT, QUICK_BUSINESS } from './data.js';
 
 // ───────────────────────── utilidades ─────────────────────────
@@ -177,7 +177,7 @@ function editProfile() {
 }
 
 // ───────────────────────── tema ─────────────────────────
-const getTheme = () => { try { return localStorage.getItem('cyv_theme') || 'auto'; } catch { return 'auto'; } };
+const getTheme = () => { try { return localStorage.getItem('cyv_theme') || 'light'; } catch { return 'light'; } };
 const themeLabel = () => ({ auto: 'Automático', light: 'Claro', dark: 'Oscuro' }[getTheme()]);
 function applyTheme() { const t = getTheme(); if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
 function cycleTheme() { const n = { auto: 'light', light: 'dark', dark: 'auto' }[getTheme()]; try { localStorage.setItem('cyv_theme', n); } catch {} applyTheme(); }
@@ -295,7 +295,7 @@ async function viewHome(parts, params) {
   return viewClientHome();
 }
 
-const demoBanner = () => (store.mode === 'local' ? `<div class="banner glass reveal"><span class="icon-chip">${I.info}</span><span><b>Modo demo.</b> Los datos se guardan en este navegador. Conecta Supabase (ver README) para sincronizarlos entre dispositivos.</span></div>` : '');
+const demoBanner = () => (store.mode === 'local' ? `<div class="banner glass reveal"><span class="icon-chip">${I.info}</span><span><b>Sin conexión a la base de datos.</b> Los datos solo se guardan en este navegador hasta que se configure Supabase en <code>js/config.js</code>.</span></div>` : '');
 
 // ── Visitante: presentación de la plataforma
 async function viewLanding() {
@@ -312,11 +312,11 @@ async function viewLanding() {
         <a class="btn primary" href="#/registro" style="height:50px;padding:0 26px;font-size:16px">Crear cuenta gratis</a>
         <a class="btn" href="#/entrar" style="height:50px;padding:0 26px;font-size:16px">Ya tengo cuenta</a>
       </div>
-      <div class="metrics reveal">
+      ${cache.businesses.length >= 3 ? `<div class="metrics reveal">
         <div class="metric"><b>${cache.businesses.length}</b><span>negocios</span></div>
         <div class="metric"><b>${cats}</b><span>categorías</span></div>
         <div class="metric"><b>${cities}</b><span>ciudades</span></div>
-      </div>
+      </div>` : ''}
     </section>
 
     <section class="section">
@@ -1070,13 +1070,8 @@ async function viewLogin(_, params) {
       <button class="btn primary" style="width:100%" id="lBtn">Iniciar sesión como <span id="lRole">${role}</span></button>
     </form>
     <p class="muted" style="text-align:center;margin:18px 0 0;font-size:14px">¿No tienes cuenta? <a href="#/registro?rol=${role}" id="toReg" style="color:var(--accent);font-weight:600">Crear cuenta</a></p>
-    ${store.mode === 'local' ? `<div class="demo-box">Cuentas de prueba (contraseña <b>demo1234</b>):<br>Cliente: <button data-demo="cliente@demo.com|cliente|demo1234">cliente@demo.com</button><br>Empresa: <button data-demo="empresa2@demo.com|empresa|demo1234">empresa2@demo.com</button> (Clínica Huellas)<br>Administrador: <button data-demo="${DEMO_ADMIN.email}|admin|${DEMO_ADMIN.password}">${DEMO_ADMIN.email}</button></div>` : ''}
   </div></div>`);
   bindSegmented($('#roleSeg'), (v) => { role = v; $('#lRole').textContent = v; $('#toReg').href = `#/registro?rol=${v}`; });
-  $$('[data-demo]').forEach((b) => b.addEventListener('click', () => {
-    const [em, r, pw] = b.dataset.demo.split('|'); $('[name=id]').value = em; $('[name=pw]').value = pw;
-    if (r !== 'admin') $(`#roleSeg button[data-v=${r}]`).click();
-  }));
   $('#loginForm').addEventListener('submit', async (e) => {
     e.preventDefault(); const f = new FormData(e.target); $('#lErr').textContent = ''; $('#lBtn').disabled = true;
     try {

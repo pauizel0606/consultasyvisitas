@@ -1,7 +1,7 @@
 // Capa de datos: Supabase (sincronizado entre dispositivos) o local (modo demo).
 // Ambas implementaciones exponen exactamente la misma interfaz.
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
-import { SEED_BUSINESSES, DEFAULT_HOURS } from './data.js';
+import { DEFAULT_HOURS } from './data.js';
 
 export const isEmail = (v = '') => /\S+@\S+\.\S+/.test(v.trim());
 export const normPhone = (v = '') => {
@@ -28,34 +28,14 @@ export async function createStore() {
 // ═════════════════════════════════════════════════════════════
 // MODO DEMO (localStorage)
 // ═════════════════════════════════════════════════════════════
-const KEY = 'cyv_db_v2';
+const KEY = 'cyv_db_v3';
 export const DEMO_ADMIN = { email: 'admin@consultasyvisitas.com', password: 'CyV-Admin-2026' };
 const SKEY = 'cyv_session_v1';
 
 function seedDb() {
+  // Sin datos de prueba: solo la cuenta de administrador para el modo sin conexión
   const db = { users: [], businesses: [], conversations: [], messages: [], appointments: [], reviews: [], favorites: [] };
-  const authors = ['Lucía M.', 'Javier R.', 'Carmen T.', 'Pablo G.', 'Marta S.', 'Diego A.'];
-  const comments = ['Muy amables y puntuales. Repetiré.', 'Todo perfecto, me atendieron enseguida.', 'Trato cercano y precios justos.', 'Ambiente muy tranquilo, se nota el cuidado.', 'Me resolvieron la duda por chat en minutos.'];
-  SEED_BUSINESSES.forEach((s, i) => {
-    const ownerId = uid();
-    const email = `empresa${i + 1}@demo.com`;
-    const phone = `+3460000${String(100 + i).padStart(4, '0')}`;
-    db.users.push({ id: ownerId, role: 'empresa', name: s.name, email, phone, password: 'demo1234' });
-    const bid = uid();
-    db.businesses.push({
-      id: bid, owner_id: ownerId, name: s.name, category: s.category, description: s.description,
-      address: s.address, city: s.city, phone, email, services: s.services, hours: s.hours || DEFAULT_HOURS,
-      slot_minutes: s.slot, tags: s.tags, auto_reply: `¡Hola! Gracias por escribir a ${s.name}. Te respondemos en breve.`,
-      rating_avg: 0, rating_count: 0, created_at: nowISO(),
-    });
-    const n = 1 + (i % 3);
-    for (let k = 0; k < n; k++) {
-      db.reviews.push({ id: uid(), business_id: bid, client_id: 'seed-' + k, author_name: authors[(i + k) % authors.length], rating: k === 2 ? 4 : 5, comment: comments[(i + k) % comments.length], created_at: new Date(Date.now() - (k + 1) * 864e5 * (i + 2)).toISOString() });
-    }
-  });
   db.users.push({ id: uid(), role: 'admin', name: 'Administrador', email: DEMO_ADMIN.email, phone: '', password: DEMO_ADMIN.password });
-  db.users.push({ id: uid(), role: 'cliente', name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+34611222333', password: 'demo1234' });
-  recalcRatings(db);
   return db;
 }
 

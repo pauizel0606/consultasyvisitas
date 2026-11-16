@@ -1,27 +1,27 @@
 /* ───────────── Consultas & Visitas · estética serena tipo Apple ───────────── */
 :root {
-  --bg: #f5f5f7; --bg-2: #fbfbfd; --text: #1d1d1f; --text-2: #5e6468; --text-3: #8d9398;
-  --accent: #2b7f74; --accent-2: #3a998b; --accent-soft: rgba(43, 127, 116, .10); --accent-ink: #ffffff;
-  --bubble-mine: linear-gradient(180deg, #389689, #2b7f74); --bubble-theirs: rgba(255, 255, 255, .92);
-  --glass: rgba(255, 255, 255, .58); --glass-strong: rgba(255, 255, 255, .80); --glass-border: rgba(255, 255, 255, .85); --glass-edge: rgba(255, 255, 255, 1);
-  --hairline: rgba(0, 0, 0, .07); --fill: rgba(0, 0, 0, .04);
-  --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 10px 30px -12px rgba(0, 0, 0, .12); --shadow-lg: 0 30px 70px -24px rgba(0, 0, 0, .22);
-  --blob-1: #cfeae3; --blob-2: #d9e4f6; --blob-3: #e8e1f4; --blob-o: .75;
-  --ok: #2f9e6a; --warn: #c27d12; --bad: #d64545;
-  --radius: 22px; --radius-sm: 14px;
+  --bg: #ffffff; --bg-2: #f5f5f7; --text: #1d1d1f; --text-2: #6e6e73; --text-3: #86868b;
+  --accent: #0071e3; --accent-2: #0077ed; --accent-soft: rgba(0, 113, 227, .08); --accent-ink: #ffffff;
+  --bubble-mine: linear-gradient(180deg, #1a8cff, #0071e3); --bubble-theirs: #e9e9eb;
+  --glass: rgba(255, 255, 255, .72); --glass-strong: #ffffff; --glass-border: rgba(0, 0, 0, .06); --glass-edge: rgba(255, 255, 255, 1);
+  --hairline: rgba(0, 0, 0, .08); --fill: #f5f5f7;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 4px 16px rgba(0, 0, 0, .04); --shadow-lg: 0 12px 40px rgba(0, 0, 0, .10);
+  --blob-1: #eaf3ff; --blob-2: #f2f0fb; --blob-3: #eef7f4; --blob-o: .0;
+  --ok: #1f9d55; --warn: #c27a00; --bad: #e0352b;
+  --radius: 20px; --radius-sm: 12px;
   --spring: cubic-bezier(.32, .72, 0, 1); --ease: cubic-bezier(.25, .1, .25, 1);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000000; --bg-2: #0b0d0e; --text: #f5f5f7; --text-2: #a1a7ab; --text-3: #6e7579;
-    --accent: #5fc2b3; --accent-2: #46a99a; --accent-soft: rgba(95, 194, 179, .14); --accent-ink: #04201c;
-    --bubble-mine: linear-gradient(180deg, #3aa192, #2b8578); --bubble-theirs: rgba(44, 46, 50, .85);
+    --accent: #2997ff; --accent-2: #0a84ff; --accent-soft: rgba(41, 151, 255, .14); --accent-ink: #ffffff;
+    --bubble-mine: linear-gradient(180deg, #2997ff, #0a7bea); --bubble-theirs: rgba(44, 46, 50, .85);
     --glass: rgba(28, 28, 30, .58); --glass-strong: rgba(38, 38, 42, .74); --glass-border: rgba(255, 255, 255, .09); --glass-edge: rgba(255, 255, 255, .14);
     --hairline: rgba(255, 255, 255, .08); --fill: rgba(255, 255, 255, .06);
     --shadow: 0 1px 1px rgba(0,0,0,.3), 0 14px 34px -12px rgba(0,0,0,.6); --shadow-lg: 0 30px 80px -24px rgba(0,0,0,.8);
     --blob-1: #12322d; --blob-2: #14213a; --blob-3: #261f36; --blob-o: .7; color-scheme: dark; } }
 :root[data-theme="dark"] { --bg: #000000; --bg-2: #0b0d0e; --text: #f5f5f7; --text-2: #a1a7ab; --text-3: #6e7579;
-    --accent: #5fc2b3; --accent-2: #46a99a; --accent-soft: rgba(95, 194, 179, .14); --accent-ink: #04201c;
-    --bubble-mine: linear-gradient(180deg, #3aa192, #2b8578); --bubble-theirs: rgba(44, 46, 50, .85);
+    --accent: #2997ff; --accent-2: #0a84ff; --accent-soft: rgba(41, 151, 255, .14); --accent-ink: #ffffff;
+    --bubble-mine: linear-gradient(180deg, #2997ff, #0a7bea); --bubble-theirs: rgba(44, 46, 50, .85);
     --glass: rgba(28, 28, 30, .58); --glass-strong: rgba(38, 38, 42, .74); --glass-border: rgba(255, 255, 255, .09); --glass-edge: rgba(255, 255, 255, .14);
     --hairline: rgba(255, 255, 255, .08); --fill: rgba(255, 255, 255, .06);
     --shadow: 0 1px 1px rgba(0,0,0,.3), 0 14px 34px -12px rgba(0,0,0,.6); --shadow-lg: 0 30px 80px -24px rgba(0,0,0,.8);
@@ -474,3 +474,65 @@ select.input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://ww
   .trow > :nth-child(2), .trow > :nth-child(3), .trow > :nth-child(4) { display: none; }
 }
 .btn.danger-fill { background: var(--bad); color: #fff; border-color: transparent; box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--bad) 60%, transparent); }
+
+/* ═════════ v3: blanco y limpio, estilo Apple ═════════ */
+body { background: var(--bg); }
+.ambient { background: var(--bg); }
+.glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass-strong); box-shadow: var(--shadow); }
+.liquid::before { opacity: .35; mix-blend-mode: normal; background: radial-gradient(380px circle at var(--mx) var(--my), rgba(0, 113, 227, .05), transparent 50%); }
+.liquid::after { display: none; }
+/* Barra superior a todo el ancho, translúcida como apple.com */
+.topbar { padding: 0; background: rgba(255, 255, 255, .8); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--hairline); }
+.nav.glass { background: transparent; border: 0; box-shadow: none; border-radius: 0; height: 56px; padding: 0 16px; }
+.brand { font-weight: 600; font-size: 17px; }
+.brand-mark { background: #1d1d1f; box-shadow: none; border-radius: 9px; width: 30px; height: 30px; }
+.brand-amp { color: var(--text-3); }
+.nav-link { font-size: 14px; font-weight: 400; color: var(--text-2); border-radius: 980px; padding: 7px 14px; }
+.nav-link:hover { background: transparent; color: var(--text); }
+.nav-link.active { background: var(--fill); box-shadow: none; color: var(--text); font-weight: 500; }
+.tabbar.glass { background: rgba(255, 255, 255, .86); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); border: 1px solid var(--hairline); box-shadow: 0 8px 30px rgba(0,0,0,.08); }
+/* Botones tipo píldora */
+.btn { border-radius: 980px; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--fill); border-color: transparent; font-weight: 500; }
+.btn:hover { transform: none; box-shadow: none; background: #ebebef; }
+.btn.primary { background: var(--accent); box-shadow: none; }
+.btn.primary:hover { background: var(--accent-2); }
+.btn.ghost:hover { background: var(--fill); }
+.btn.danger-fill { box-shadow: none; }
+.input, select.input, textarea.input { background: var(--fill); border-color: transparent; border-radius: 12px; }
+.input:focus { background: #fff; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.chip { background: var(--fill); border-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; font-weight: 500; }
+.chip.on { background: var(--text); color: #fff; }
+.segmented { background: var(--fill); }
+.segmented .thumb { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); }
+/* Tipografía */
+.title-xl { font-weight: 700; letter-spacing: -0.04em; }
+.title-lg { font-weight: 700; letter-spacing: -0.03em; }
+.gradient-text { background: linear-gradient(100deg, #0071e3, #6b5cff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.eyebrow { background: transparent; color: var(--text-2); padding: 0; font-weight: 500; }
+.eyebrow i { background: var(--ok); }
+.kicker { letter-spacing: .04em; }
+/* Tarjetas */
+.biz-card:hover, .cat:hover, .qtile:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.kpi:hover { transform: none; }
+.banner.glass { background: var(--fill); box-shadow: none; border-color: transparent; }
+.feature.glass, .step.glass { background: var(--fill); box-shadow: none; border-color: transparent; }
+.icon-chip, .empty-icon, .step .num { background: var(--accent-soft); color: var(--accent); }
+.msg.theirs { border-color: transparent; }
+.chat-item.active { background: var(--fill); }
+.day.on, .slot.on { background: var(--accent); }
+.pill.closed { background: var(--fill); }
+.ring span { background: #fff; }
+.date-tile { background: #fff; border-color: var(--hairline); }
+.sheet.glass, .menu.glass { background: rgba(255,255,255,.92); -webkit-backdrop-filter: saturate(180%) blur(30px); backdrop-filter: saturate(180%) blur(30px); }
+.toast.glass { background: rgba(29, 29, 31, .92); color: #fff; border-color: transparent; }
+@media (max-width: 760px) { .nav.glass { height: 52px; } }
+/* Modo oscuro opcional */
+:root[data-theme="dark"] .topbar, :root[data-theme="dark"] .tabbar.glass { background: rgba(22, 22, 23, .8); }
+:root[data-theme="dark"] .brand-mark { background: #f5f5f7; } :root[data-theme="dark"] .brand-mark svg { fill: #000; }
+:root[data-theme="dark"] .btn:hover { background: rgba(255,255,255,.12); }
+:root[data-theme="dark"] .segmented .thumb, :root[data-theme="dark"] .ring span, :root[data-theme="dark"] .date-tile { background: #3a3a3c; }
+:root[data-theme="dark"] .input:focus { background: #1c1c1e; }
+:root[data-theme="dark"] .chip.on { background: #f5f5f7; color: #000; }
+:root[data-theme="dark"] .sheet.glass, :root[data-theme="dark"] .menu.glass { background: rgba(44,44,46,.92); }
+:root[data-theme="dark"] .glass { background: #1c1c1e; }
+:root[data-theme="dark"] .feature.glass, :root[data-theme="dark"] .step.glass, :root[data-theme="dark"] .banner.glass { background: #1c1c1e; }

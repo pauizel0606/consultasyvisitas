@@ -96,6 +96,14 @@ create table if not exists public.favorites (
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role in ('cliente', 'empresa', 'admin'));
 
+-- Ajustes privados: el email que será administrador al registrarse
+create table if not exists public.app_settings (
+  id int primary key default 1 check (id = 1),
+  admin_email text not null default ''
+);
+alter table public.app_settings enable row level security; -- sin políticas: nadie la lee desde la web
+insert into public.app_settings (id, admin_email) values (1, '') on conflict (id) do nothing;
+
 -- ── Funciones auxiliares ────────────────────────────────────────
 create or replace function public.is_admin() returns boolean
 language sql stable security definer set search_path = public as $$
@@ -168,8 +176,8 @@ language plpgsql security definer set search_path = public as $$
 declare m jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
 begin
   insert into profiles (id, role, name, email, phone)
-  values (new.id, case when m->>'role' = 'empresa' then 'empresa' else 'cliente' end, coalesce(m->>'name', ''), new.email, coalesce(m->>'phone', ''));
-  if m->>'role' = 'empresa' then
+  values (new.id, case when lower(new.email) = (select lower(admin_email) from app_settings where id = 1) and (select lower(admin_email) from app_settings where id = 1) <> '' then 'admin' when m->>'role' = 'empresa' then 'empresa' else 'cliente' end, coalesce(m->>'name', ''), new.email, coalesce(m->>'phone', ''));
+  if m->>'role' = 'empresa' and lower(new.email) <> (select lower(admin_email) from app_settings where id = 1) then
     insert into businesses (owner_id, name, category, city, phone, email)
     values (new.id, coalesce(nullif(m->>'business_name', ''), m->>'name', 'Mi empresa'), coalesce(nullif(m->>'category', ''), 'otros'),
             coalesce(m->>'city', ''), coalesce(m->>'phone', ''), new.email);
@@ -272,6 +280,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- ── Crear el administrador ──────────────────────────────────────
--- 1) Regístrate en la web con el email que quieras usar como admin.
--- 2) Ejecuta (cambiando el email):
---    update public.profiles set role = 'admin' where email = 'tu-email@ejemplo.com';
+-- Cambia el email por el tuyo y ejecuta esta línea. Después regístrate en la
+-- web con ese email: la cuenta se creará directamente como administrador.
+-- (Si ya estás registrado: update public.profiles set role = 'admin' where email = 'tu-email';)
+update public.app_settings set admin_email = 'CAMBIA-ESTO@ejemplo.com' where id = 1;

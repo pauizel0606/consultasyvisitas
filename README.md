@@ -29,35 +29,18 @@ Aplicación web para **encontrar negocios, chatear con ellos y agendar visitas**
 6. **Añadir la cita al calendario** (archivo .ics compatible con Apple Calendar, Google Calendar y Outlook) con recordatorio 1 h antes.
 7. **Respuestas rápidas** en el chat y estado “Abierto / Cerrado” en tiempo real.
 
-## Probarlo ya (modo demo)
+## Datos
 
-Sin configurar nada, la app funciona en **modo demo**: los datos se guardan en el navegador (siguen ahí al cerrar y volver a abrir la web), con 16 empresas ficticias de ejemplo.
+La plataforma empieza **vacía**: sin empresas ni usuarios de prueba. Solo existe la cuenta de administrador.
 
-Cuentas de prueba (contraseña `demo1234`):
-
-| Tipo | Usuario |
-|---|---|
-| Cliente | `cliente@demo.com` |
-| Empresa | `empresa1@demo.com` … `empresa16@demo.com` |
-| Administrador | `admin@consultasyvisitas.com` · contraseña `CyV-Admin-2026` |
-
-> La cuenta de administrador del modo demo está en el código fuente (`js/store.js`), así que cualquiera puede verla. No pasa nada porque en modo demo cada navegador tiene sus propios datos. Con Supabase **no existe**: crea tu admin como se explica abajo.
-
-> En modo demo los datos no salen de ese navegador. Para que el mismo chat aparezca en **otro dispositivo**, activa Supabase.
-
-## Activar la sincronización entre dispositivos (Supabase, gratis, ~5 min)
+## Base de datos online (Supabase, plan gratuito)
 
 1. Crea una cuenta y un proyecto en [supabase.com](https://supabase.com).
 2. Ve a **SQL Editor**, pega el contenido de [`supabase/schema.sql`](supabase/schema.sql) y pulsa **Run**.
-3. (Opcional) Ejecuta también [`supabase/seed.sql`](supabase/seed.sql) para tener empresas de ejemplo.
-4. En **Authentication → Sign In / Providers → Email**, desactiva *Confirm email* si quieres que las cuentas funcionen al momento (si lo dejas activo, el usuario debe confirmar su email antes de entrar).
-5. En **Project Settings → API** copia la *Project URL* y la *anon public key* y pégalas en [`js/config.js`](js/config.js).
-6. **Crea tu administrador**: regístrate en la web con tu email y ejecuta en el SQL Editor:
-   ```sql
-   update public.profiles set role = 'admin' where email = 'tu-email@ejemplo.com';
-   ```
-   Nadie puede darse el rol de admin desde la web: solo desde el SQL Editor.
-7. Sube el cambio a GitHub. Listo: cuentas, chats, citas, reseñas y favoritos quedan en la nube y se sincronizan en tiempo real.
+3. En **Authentication → Sign In / Providers → Email**, desactiva *Confirm email* si quieres que las cuentas funcionen al momento (si lo dejas activo, el usuario debe confirmar su email antes de entrar).
+4. En **Project Settings → API** copia la *Project URL* y la *anon public key* y pégalas en [`js/config.js`](js/config.js).
+5. **Administrador**: la última línea de `schema.sql` define qué email será administrador. Al registrarte en la web con ese email, la cuenta se crea directamente como admin. Nadie puede darse ese rol desde la web.
+6. Sube el cambio a GitHub. Listo: cuentas, chats, citas, reseñas y favoritos quedan en la nube y se sincronizan en tiempo real.
 
 La *anon key* es pública por diseño; la seguridad la dan las políticas **RLS** incluidas en el schema (cada usuario solo ve sus propios chats y citas).
 
@@ -84,5 +67,8 @@ js/app.js           Vistas: inicio por rol, resumen de empresa, admin, explorar,
 js/store.js         Datos: Supabase (nube) o localStorage (demo), misma interfaz
 js/data.js          Categorías, búsqueda por necesidad y empresas de ejemplo
 js/config.js        Claves de Supabase
-supabase/           schema.sql y seed.sql
+supabase/           schema.sql
 ```
+
+> Sin Supabase configurado, la web avisa de que no hay conexión y guarda los datos solo en ese navegador.
+> El plan gratuito de Supabase pausa el proyecto tras 7 días sin ninguna visita; se reactiva desde su panel con un clic.
