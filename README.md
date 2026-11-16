@@ -1,0 +1,74 @@
+# Consultas & Visitas 🌿
+
+Aplicación web para **encontrar negocios, chatear con ellos y agendar visitas**. Diseño sereno inspirado en Apple, con efecto *liquid glass*, modo claro/oscuro automático y animaciones suaves.
+
+## Qué incluye
+
+- **Dos tipos de cuenta**: cliente y empresa (con selector “Soy cliente / Soy empresa” al entrar y registrarse).
+- **Inicio de sesión con email o teléfono.**
+- **Chat por teléfono o email**: pulsa *Nuevo* en Mensajes, escribe el teléfono o email de la empresa (o del cliente, si eres empresa) y se abre la conversación. También hay botones directos de *Llamar*, *WhatsApp* y *Email*.
+- **Chats guardados en la cuenta**: al volver a entrar, o desde otro dispositivo con la misma cuenta, ves el mismo historial (con Supabase activado, ver abajo). Mensajes en tiempo real y aviso de no leídos.
+- **Agenda de visitas**: el cliente elige día y hora libre según el horario de la empresa; la empresa confirma o rechaza desde el chat o desde la Agenda, y el cliente recibe el aviso en el chat.
+- **Categorías**: hamburguesería, veterinario, peluquería, dentista, fisioterapia, restaurante, pizzería, estética, taller, fontanería, gimnasio, psicología, abogados, óptica, academia, floristería…
+- **Buscador por necesidad**: escribe “mi perro necesita una vacuna” o “tengo una fuga en el grifo” y detecta que buscas un veterinario o un fontanero. Filtros por ciudad, abiertos ahora y valoración.
+- **Panel de empresa**: datos, servicios con precio, horario por días (jornada partida), duración de cita, respuesta automática y estadísticas.
+
+### Extras que he añadido para mejorar la idea
+
+1. **Búsqueda inteligente por necesidad** (no hace falta saber la categoría).
+2. **Reservas con huecos reales**: solo se muestran horas libres y no se pueden duplicar.
+3. **Respuesta automática** configurable para el primer mensaje de cada cliente.
+4. **Reseñas con estrellas** y valoración media en cada negocio.
+5. **Favoritos** para clientes.
+6. **Añadir la cita al calendario** (archivo .ics compatible con Apple Calendar, Google Calendar y Outlook) con recordatorio 1 h antes.
+7. **Respuestas rápidas** en el chat y estado “Abierto / Cerrado” en tiempo real.
+
+## Probarlo ya (modo demo)
+
+Sin configurar nada, la app funciona en **modo demo**: los datos se guardan en el navegador (siguen ahí al cerrar y volver a abrir la web), con 16 empresas ficticias de ejemplo.
+
+Cuentas de prueba (contraseña `demo1234`):
+
+| Tipo | Usuario |
+|---|---|
+| Cliente | `cliente@demo.com` |
+| Empresa | `empresa1@demo.com` … `empresa16@demo.com` |
+
+> En modo demo los datos no salen de ese navegador. Para que el mismo chat aparezca en **otro dispositivo**, activa Supabase.
+
+## Activar la sincronización entre dispositivos (Supabase, gratis, ~5 min)
+
+1. Crea una cuenta y un proyecto en [supabase.com](https://supabase.com).
+2. Ve a **SQL Editor**, pega el contenido de [`supabase/schema.sql`](supabase/schema.sql) y pulsa **Run**.
+3. (Opcional) Ejecuta también [`supabase/seed.sql`](supabase/seed.sql) para tener empresas de ejemplo.
+4. En **Authentication → Sign In / Providers → Email**, desactiva *Confirm email* si quieres que las cuentas funcionen al momento (si lo dejas activo, el usuario debe confirmar su email antes de entrar).
+5. En **Project Settings → API** copia la *Project URL* y la *anon public key* y pégalas en [`js/config.js`](js/config.js).
+6. Sube el cambio a GitHub. Listo: cuentas, chats, citas, reseñas y favoritos quedan en la nube y se sincronizan en tiempo real.
+
+La *anon key* es pública por diseño; la seguridad la dan las políticas **RLS** incluidas en el schema (cada usuario solo ve sus propios chats y citas).
+
+## Ejecutar en local
+
+Es una web estática sin dependencias ni compilación:
+
+```bash
+python3 -m http.server 8080
+```
+
+y abre http://localhost:8080
+
+## Publicación
+
+Se publica con **GitHub Pages** desde la rama `main` (carpeta raíz).
+
+## Estructura
+
+```
+index.html          Estructura y navegación
+css/styles.css      Estética (liquid glass, animaciones, modo oscuro)
+js/app.js           Vistas: inicio, explorar, empresa, mensajes, citas, panel, acceso
+js/store.js         Datos: Supabase (nube) o localStorage (demo), misma interfaz
+js/data.js          Categorías, búsqueda por necesidad y empresas de ejemplo
+js/config.js        Claves de Supabase
+supabase/           schema.sql y seed.sql
+```
