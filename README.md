@@ -10,7 +10,8 @@ Aplicación web para **encontrar negocios, chatear con ellos y agendar visitas**
   - *Cliente*: próxima cita, mensajes recientes, accesos rápidos, visitas pendientes de valorar y favoritos.
   - *Empresa* → **Resumen**: chats por responder (con el tiempo de espera), visitas de hoy en línea temporal, citas por confirmar, citas de los próximos 7 días, últimas reseñas y lo que falta por completar del perfil.
   - *Administrador* → **Panel de control**: estadísticas y gestión de empresas y cuentas, con permiso para eliminarlas.
-- **Explorar en su propia pestaña**: buscador y categorías.
+- **Explorar en su propia pestaña**: buscador, categorías y **búsqueda por ubicación** («Cerca de mí» con el GPS del móvil, o escribiendo una ciudad o dirección), con distancia en cada negocio, filtro por kilómetros y orden «Más cerca».
+- **Ubicación obligatoria para empresas**: al registrarse deben indicar dirección y ciudad (o usar su ubicación actual). Si una empresa entra sin ubicación, la web le pide añadirla antes de continuar.
 - **Inicio de sesión con email o teléfono.**
 - **Chat por teléfono o email**: pulsa *Nuevo* en Mensajes, escribe el teléfono o email de la empresa (o del cliente, si eres empresa) y se abre la conversación. También hay botones directos de *Llamar*, *WhatsApp* y *Email*.
 - **Chats guardados en la cuenta**: al volver a entrar, o desde otro dispositivo con la misma cuenta, ves el mismo historial (con Supabase activado, ver abajo). Mensajes en tiempo real y aviso de no leídos.
@@ -70,5 +71,6 @@ js/config.js        Claves de Supabase
 supabase/           schema.sql
 ```
 
+> La geolocalización de direcciones usa el servicio gratuito de OpenStreetMap (Nominatim); solo se consulta al pulsar «Buscar zona», «Cerca de mí» o al guardar la dirección de una empresa.
 > Sin Supabase configurado, la web avisa de que no hay conexión y guarda los datos solo en ese navegador.
 > El plan gratuito de Supabase pausa el proyecto tras 7 días sin ninguna visita; se reactiva desde su panel con un clic.

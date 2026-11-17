@@ -94,7 +94,7 @@ class LocalStore {
     if (role === 'empresa') {
       this.db.businesses.push({
         id: uid(), owner_id: u.id, name: business?.name || name, category: business?.category || 'otros', city: business?.city || '',
-        description: '', address: '', phone: u.phone, email, services: [], hours: DEFAULT_HOURS, slot_minutes: 30, tags: '',
+        description: '', address: business?.address || '', lat: business?.lat ?? null, lng: business?.lng ?? null, phone: u.phone, email, services: [], hours: DEFAULT_HOURS, slot_minutes: 30, tags: '',
         auto_reply: '', rating_avg: 0, rating_count: 0, created_at: nowISO(),
       });
     }
@@ -316,7 +316,7 @@ class SupabaseStore {
   async signUp({ role, name, email, phone, password, business }) {
     const { data, error } = await this.sb.auth.signUp({
       email: email.trim().toLowerCase(), password,
-      options: { emailRedirectTo: location.origin + location.pathname, data: { role, name, phone: normPhone(phone), business_name: business?.name || '', category: business?.category || 'otros', city: business?.city || '' } },
+      options: { emailRedirectTo: location.origin + location.pathname, data: { role, name, phone: normPhone(phone), business_name: business?.name || '', category: business?.category || 'otros', city: business?.city || '', address: business?.address || '', lat: business?.lat ?? '', lng: business?.lng ?? '' } },
     });
     if (error) throw new Error(toEs(error.message));
     if (!data.session) { const e = new Error('confirm'); e.confirm = true; throw e; }

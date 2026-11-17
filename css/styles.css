@@ -541,3 +541,12 @@ body { background: var(--bg); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .btn[disabled] .spin { opacity: 1; }
 .btn.primary[disabled] { opacity: .75; }
+
+/* ═════════ Búsqueda por ubicación ═════════ */
+.locbar { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 16px; border-radius: 16px; background: var(--fill); flex-wrap: wrap; }
+.locbar > .ic { color: var(--accent); width: 20px; height: 20px; }
+.locbar input { flex: 1 1 200px; min-width: 0; border: 0; background: none; outline: none; height: 40px; font-size: 16px; }
+.dist { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: var(--accent); font-weight: 600; margin-right: 6px; }
+.dist .ic { width: 14px; height: 14px; }
+[data-locstatus] .ic { width: 16px; height: 16px; }
+@media (max-width: 560px) { .locbar .btn { flex: 1; } }

@@ -1,4 +1,5 @@
 import { createStore, isEmail } from './store.js';
+import { myPosition, geocode, reverse, distanceKm, fmtKm } from './geo.js';
 import { CATEGORIES, catById, inferCategory, normalize, SEARCH_EXAMPLES, QUICK_CLIENT, QUICK_BUSINESS } from './data.js';
 
 // ───────────────────────── utilidades ─────────────────────────
@@ -234,6 +235,9 @@ async function route() {
   const views = { '': viewHome, explorar: viewExplore, empresa: viewBusiness, mensajes: viewChats, citas: viewAppointments, panel: viewPanel, entrar: viewLogin, registro: viewRegister, favoritos: viewFavorites };
   const v = views[key] || viewHome;
   if (key === 'mensajes' && prev.startsWith('#/mensajes') && $('.chat-shell')) return openThread(parts[1] || null);
+  // Las empresas no pueden usar la plataforma sin ubicación
+  const myBiz = me?.role === 'empresa' && cache.businesses.find((b) => b.id === me.business_id);
+  if (myBiz && (myBiz.lat == null || myBiz.lng == null)) { await viewNeedLocation(myBiz); observeReveals(); return; }
   await v(parts, params);
   if (!(key === 'explorar' && prev.startsWith('#/explorar'))) window.scrollTo({ top: 0, behavior: 'instant' });
   observeReveals();
@@ -283,7 +287,7 @@ function bizCard(b) {
       <div class="biz-top"><h3>${esc(b.name)}</h3>${openPill(b)}</div>
       <p class="muted">${esc(c.name)}${b.city ? ' · ' + esc(b.city) : ''}</p>
       <p class="biz-desc">${esc(b.description || 'Sin descripción todavía.')}</p>
-      <div class="biz-meta">${b.rating_count ? `${stars(+b.rating_avg)} ${(+b.rating_avg).toFixed(1)} · ${b.rating_count} reseña${b.rating_count > 1 ? 's' : ''}` : '<span>Nuevo en la plataforma</span>'}</div>
+      <div class="biz-meta">${b._km != null ? `<span class="dist">${I.pin}${fmtKm(b._km)}</span>` : ''}${b.rating_count ? `${stars(+b.rating_avg)} ${(+b.rating_avg).toFixed(1)} · ${b.rating_count} reseña${b.rating_count > 1 ? 's' : ''}` : '<span>Nuevo en la plataforma</span>'}</div>
     </div></a>`;
 }
 
@@ -555,7 +559,7 @@ async function viewAdmin() {
 
 // ═════════════════════════ EXPLORAR (pestaña propia) ═════════════════════════
 const STOP = new Set(['una', 'uno', 'unos', 'para', 'con', 'que', 'por', 'los', 'las', 'del', 'mis', 'necesito', 'necesita', 'quiero', 'tengo', 'busco', 'esta', 'este', 'muy', 'hoy', 'manana', 'donde', 'como', 'algo', 'alguien', 'duele', 'mucho']);
-function searchBusinesses({ q = '', cat = '', city = '', sort = 'rel' }) {
+function searchBusinesses({ q = '', cat = '', city = '', sort = 'rel', origin = null, radius = 0 }) {
   const nq = normalize(q);
   const tokens = nq.split(/\s+/).filter((t) => t.length > 2 && !STOP.has(t));
   const inferred = !cat && nq ? inferCategory(q) : null;
@@ -573,26 +577,42 @@ function searchBusinesses({ q = '', cat = '', city = '', sort = 'rel' }) {
   }).filter((x) => x.s > 0);
   if (cat) list = list.filter((x) => x.b.category === cat);
   if (city) list = list.filter((x) => x.b.city === city);
+  list = list.map((x) => ({ ...x, b: { ...x.b, _km: origin ? distanceKm(origin, x.b) : null } }));
+  if (origin && radius) list = list.filter((x) => x.b._km != null && x.b._km <= radius);
+  const byKm = (a, b) => (a.b._km ?? 1e9) - (b.b._km ?? 1e9);
   const byRating = (a, b) => b.b.rating_avg - a.b.rating_avg || b.b.rating_count - a.b.rating_count;
   if (sort === 'rating') list.sort(byRating);
   else if (sort === 'az') list.sort((a, b) => a.b.name.localeCompare(b.b.name, 'es'));
   else if (sort === 'open') list.sort((a, b) => isOpenNow(b.b.hours) - isOpenNow(a.b.hours) || b.s - a.s);
+  else if (sort === 'near') list.sort((a, b) => byKm(a, b) || b.s - a.s);
   else list.sort((a, b) => b.s - a.s || byRating(a, b));
   return { list: list.map((x) => x.b), inferred };
 }
 
+const ORIGIN_KEY = 'cyv_origin';
+const loadOrigin = () => { try { return JSON.parse(sessionStorage.getItem(ORIGIN_KEY)); } catch { return null; } };
+const saveOrigin = (o) => { try { if (o) sessionStorage.setItem(ORIGIN_KEY, JSON.stringify(o)); else sessionStorage.setItem(ORIGIN_KEY, 'null'); } catch {} };
+
 async function viewExplore(_, params) {
-  const st = { q: params.get('q') || '', cat: params.get('cat') || '', city: params.get('city') || '', sort: params.get('sort') || 'rel' };
-  const cities = [...new Set(cache.businesses.map((b) => b.city).filter(Boolean))].sort();
+  const origin = loadOrigin();
+  const st = { q: params.get('q') || '', cat: params.get('cat') || '', sort: params.get('sort') || (origin ? 'near' : 'rel'), radius: +(params.get('r') || 0), origin };
   const count = (id) => cache.businesses.filter((b) => b.category === id).length;
   mount(`
     <div class="explore-head">
-      <div><h1 class="title-lg reveal">Explorar</h1><p class="muted reveal" style="margin:6px 0 0">Describe lo que necesitas con tus palabras o elige una categoría.</p></div>
+      <div><h1 class="title-lg reveal">Explorar</h1><p class="muted reveal" style="margin:6px 0 0">Describe lo que necesitas, elige una categoría y busca cerca de ti.</p></div>
       <form class="searchbar glass liquid reveal" id="exForm" role="search" style="margin:0;max-width:none">${I.search}<input id="exQ" value="${esc(st.q)}" placeholder="${esc(SEARCH_EXAMPLES[0])}" autocomplete="off"><button class="btn primary">Buscar</button></form>
+      <form class="locbar reveal" id="exLocForm">
+        ${I.pin}<input id="exLoc" placeholder="Ciudad, barrio o dirección" autocomplete="off" value="${esc(origin?.label || '')}">
+        <button type="submit" class="btn sm" id="exLocGo">Buscar zona</button>
+        <button type="button" class="btn sm primary" id="exNear">${I.compass} Cerca de mí</button>
+      </form>
       <div class="toolbar reveal">
-        <select class="input" id="exCity" style="width:auto;min-width:180px"><option value="">Todas las ciudades</option>${cities.map((c) => `<option ${c === st.city ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
-        ${segmented('exSort', [['rel', 'Relevancia'], ['rating', 'Valoración'], ['open', 'Abiertos'], ['az', 'A–Z']], st.sort)}
+        <select class="input" id="exRadius" style="width:auto;min-width:190px" ${origin ? '' : 'disabled'}>
+          ${[[0, 'Cualquier distancia'], [2, 'Hasta 2 km'], [5, 'Hasta 5 km'], [10, 'Hasta 10 km'], [25, 'Hasta 25 km'], [50, 'Hasta 50 km']].map(([v, t]) => `<option value="${v}" ${st.radius === v ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+        ${segmented('exSort', [['rel', 'Relevancia'], ['near', 'Más cerca'], ['rating', 'Valoración'], ['open', 'Abiertos']], st.sort)}
       </div>
+      <div id="exOrigin"></div>
     </div>
     <section id="exCatsGrid" class="section" style="margin-top:30px">
       <div class="section-head"><h2 class="title-md">Categorías</h2></div>
@@ -607,8 +627,19 @@ async function viewExplore(_, params) {
   let ex = 0; const input = $('#exQ');
   const timer = setInterval(() => { if (!document.body.contains(input)) return clearInterval(timer); if (document.activeElement !== input && !input.value) input.placeholder = SEARCH_EXAMPLES[(++ex) % SEARCH_EXAMPLES.length]; }, 3200);
 
+  const pickSort = (v) => $(`#exSort button[data-v=${v}]`).click();
+  const setOrigin = (o) => {
+    st.origin = o; saveOrigin(o);
+    $('#exRadius').disabled = !o;
+    if (!o) { st.radius = 0; $('#exRadius').value = '0'; if (st.sort === 'near') pickSort('rel'); }
+    else if (st.sort === 'rel') pickSort('near');
+    sync(); draw();
+  };
   const draw = () => {
-    const browsing = st.q || st.cat || st.city || st.sort !== 'rel' || params.has('todo');
+    const o = st.origin;
+    $('#exOrigin').innerHTML = o ? `<div class="need-pill">${I.pin} Buscando cerca de <b>${esc(o.label || 'tu ubicación')}</b><button class="btn ghost sm" id="exClear" style="height:26px">Quitar</button></div>` : '';
+    $('#exClear')?.addEventListener('click', () => { $('#exLoc').value = ''; setOrigin(null); });
+    const browsing = st.q || st.cat || st.origin || st.sort !== 'rel' || params.has('todo');
     $('#exCatsGrid').classList.toggle('hidden', !!browsing);
     $('#exFilters').classList.toggle('hidden', !browsing);
     if (!browsing) return;
@@ -616,20 +647,44 @@ async function viewExplore(_, params) {
     const c = inferred && catById(inferred);
     $('#exNeed').innerHTML = c ? `<div class="need-pill" style="margin-bottom:14px">${catIcon(c, '', '--s:24px;background:none;box-shadow:none')} Parece que buscas: <b>${c.name}</b> <button class="btn ghost sm" id="needOnly" style="height:26px">Ver solo ${c.name.toLowerCase()}</button></div>` : '';
     $('#needOnly')?.addEventListener('click', () => { st.cat = inferred; st.q = ''; input.value = ''; syncChips(); sync(); draw(); });
-    $('#exResults').innerHTML = list.length ? list.map(bizCard).join('') : `<div style="grid-column:1/-1">${emptyState(I.search, 'Sin resultados', 'Prueba con otras palabras o quita filtros.')}</div>`;
+    const far = st.origin && st.radius ? ` a menos de ${st.radius} km. Prueba a ampliar la distancia` : '';
+    $('#exResults').innerHTML = list.length ? list.map(bizCard).join('') : `<div style="grid-column:1/-1">${emptyState(I.search, 'Sin resultados', `No hay negocios que encajen${far}.`)}</div>`;
     observeReveals();
   };
   const sync = () => {
-    const p = new URLSearchParams(); Object.entries(st).forEach(([k, v]) => v && !(k === 'sort' && v === 'rel') && p.set(k, v));
+    const p = new URLSearchParams();
+    if (st.q) p.set('q', st.q);
+    if (st.cat) p.set('cat', st.cat);
+    if (st.radius) p.set('r', st.radius);
+    if (st.sort !== (st.origin ? 'near' : 'rel')) p.set('sort', st.sort);
     const h = `#/explorar${p.toString() ? '?' + p : ''}`; history.replaceState(null, '', h); currentRoute = h;
   };
   const syncChips = () => $$('#exCats .chip').forEach((x) => x.classList.toggle('on', x.dataset.cat === st.cat));
   input.addEventListener('input', debounce((e) => { st.q = e.target.value; sync(); draw(); }, 180));
   $('#exForm').addEventListener('submit', (e) => { e.preventDefault(); if (!input.value) { input.value = input.placeholder; st.q = input.value; sync(); draw(); } input.blur(); });
-  $('#exCity').addEventListener('change', (e) => { st.city = e.target.value; sync(); draw(); });
-  bindSegmented($('#exSort'), (v) => { st.sort = v; sync(); draw(); });
+  $('#exLocForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); const q = $('#exLoc').value.trim(); if (!q) return toast('Escribe una ciudad o dirección');
+    busy($('#exLocGo'), 'Buscando…');
+    try { const g = await geocode(q); if (!g) toast('No encontramos esa ubicación'); else { $('#exLoc').value = g.label; setOrigin({ lat: g.lat, lng: g.lng, label: g.label }); } }
+    catch (err) { toast(err.message); } finally { busy($('#exLocGo')); }
+  });
+  $('#exNear').addEventListener('click', async () => {
+    busy($('#exNear'), 'Localizando…');
+    try {
+      const pos = await myPosition();
+      const r = await reverse(pos.lat, pos.lng).catch(() => null);
+      const label = r?.label || 'tu ubicación';
+      $('#exLoc').value = label; setOrigin({ ...pos, label });
+    } catch (err) { toast(err.message); } finally { busy($('#exNear')); }
+  });
+  $('#exRadius').addEventListener('change', (e) => { st.radius = +e.target.value; sync(); draw(); });
+  bindSegmented($('#exSort'), (v) => {
+    if (v === 'near' && !st.origin) { toast('Primero indica tu ubicación: «Cerca de mí» o escribe una ciudad'); pickSort(st.sort); return; }
+    st.sort = v; sync(); draw();
+  });
   $('#exCats').addEventListener('click', (e) => { const b = e.target.closest('.chip'); if (!b) return; st.cat = b.dataset.cat; syncChips(); sync(); draw(); });
   $('#exCatsGrid').addEventListener('click', (e) => { const b = e.target.closest('[data-cat]'); if (!b) return; st.cat = b.dataset.cat; syncChips(); sync(); draw(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  if (params.get('cerca') === '1' && !st.origin) $('#exNear').click();
   draw();
 }
 
@@ -1015,13 +1070,15 @@ async function viewPanel() {
         <div class="form-grid">
           <label class="field"><span>Nombre</span><input class="input" name="name" value="${esc(b.name)}" required></label>
           <label class="field"><span>Categoría</span><select class="input" name="category">${CATEGORIES.map((c) => `<option value="${c.id}" ${c.id === b.category ? 'selected' : ''}>${c.name}</option>`).join('')}</select></label>
-          <label class="field"><span>Ciudad</span><input class="input" name="city" value="${esc(b.city)}"></label>
-          <label class="field"><span>Dirección</span><input class="input" name="address" value="${esc(b.address)}"></label>
           <label class="field"><span>Teléfono de contacto</span><input class="input" name="phone" type="tel" value="${esc(b.phone)}"></label>
           <label class="field"><span>Email de contacto</span><input class="input" name="email" type="email" value="${esc(b.email)}"></label>
         </div>
         <label class="field"><span>Descripción</span><textarea class="input" name="description" placeholder="Cuéntales a tus clientes qué hacéis y qué os hace especiales">${esc(b.description)}</textarea></label>
         <label class="field"><span>Palabras clave (ayudan al buscador)</span><input class="input" name="tags" value="${esc(b.tags || '')}" placeholder="urgencias, vegano, a domicilio…"></label>
+      </section>
+      <section class="glass panel reveal stack">
+        <div class="panel-head" style="margin:0"><h2>Ubicación</h2><span class="subtle">Obligatoria · sirve para que te encuentren cerca</span></div>
+        ${locFieldsHTML(b.address, b.city, b.lat != null)}
       </section>
       <section class="glass panel reveal stack">
         <div class="panel-head" style="margin:0"><h2>Servicios y mensajes</h2></div>
@@ -1042,16 +1099,83 @@ async function viewPanel() {
       </section>
       <div class="row" style="justify-content:flex-end"><button class="btn primary" style="height:48px;padding:0 26px">Guardar cambios</button></div>
     </form>`);
+  const getCoords = bindLocFields($('#bizForm'), b.lat != null ? { lat: b.lat, lng: b.lng } : null);
   $('#bizForm').addEventListener('submit', async (e) => {
     e.preventDefault(); const f = new FormData(e.target);
+    let coords;
+    try { coords = await getCoords(); } catch (err) { return toast(err.message); }
     const hours = {};
     $$('.hrow', e.target).forEach((row) => {
       const d = row.dataset.day; const on = $('input[type=checkbox]', row).checked; const t = $$('input[type=time]', row).map((x) => x.value);
       hours[d] = on ? [[t[0], t[1]], [t[2], t[3]]].filter(([x, y]) => x && y) : [];
     });
     const services = f.get('services').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => { const [name, price = ''] = l.split('|').map((x) => x.trim()); return { name, price }; });
-    const patch = { name: f.get('name').trim(), category: f.get('category'), city: f.get('city').trim(), address: f.get('address').trim(), phone: f.get('phone').trim(), email: f.get('email').trim(), description: f.get('description').trim(), tags: f.get('tags').trim(), auto_reply: f.get('auto_reply').trim(), slot_minutes: +f.get('slot_minutes'), services, hours };
+    const patch = { name: f.get('name').trim(), category: f.get('category'), city: f.get('city').trim(), address: f.get('address').trim(), phone: f.get('phone').trim(), email: f.get('email').trim(), description: f.get('description').trim(), tags: f.get('tags').trim(), auto_reply: f.get('auto_reply').trim(), slot_minutes: +f.get('slot_minutes'), services, hours, lat: coords.lat, lng: coords.lng };
     try { await store.saveBusiness(patch); await refreshBusinesses(); toast('Cambios guardados'); } catch (err) { toast(err.message); }
+  });
+}
+
+// ───────────────────────── UBICACIÓN DEL NEGOCIO ─────────────────────────
+function locFieldsHTML(address = '', city = '', located = false, optional = false) {
+  const req = optional ? '' : 'required';
+  return `<div class="form-grid" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)">
+      <label class="field"><span>Dirección del negocio *</span><input class="input" name="address" value="${esc(address)}" placeholder="Calle y número" autocomplete="street-address" data-req ${req}></label>
+      <label class="field"><span>Ciudad *</span><input class="input" name="city" value="${esc(city)}" autocomplete="address-level2" data-req ${req}></label>
+    </div>
+    <div class="row wrap" style="gap:10px"><button type="button" class="btn sm" data-useloc>${I.compass} Usar mi ubicación actual</button>
+      <span class="subtle row" style="gap:6px" data-locstatus>${located ? `${I.check} Ubicación guardada en el mapa` : ''}</span></div>`;
+}
+
+// Devuelve una función async que da las coordenadas: las del GPS si se usó, o las de geocodificar la dirección escrita
+function bindLocFields(form, initial = null) {
+  let coords = initial;
+  const status = form.querySelector('[data-locstatus]');
+  const addr = form.elements.address, city = form.elements.city;
+  const ok = (msg) => { status.innerHTML = `${I.check} ${msg}`; status.style.color = 'var(--ok)'; };
+  form.querySelector('[data-useloc]').addEventListener('click', async (e) => {
+    const btn = e.currentTarget; busy(btn, 'Localizando…');
+    try {
+      const pos = await myPosition();
+      const r = await reverse(pos.lat, pos.lng).catch(() => null);
+      if (r?.street) addr.value = r.street;
+      if (r?.city) city.value = r.city;
+      coords = pos; ok('Ubicación detectada');
+    } catch (err) { toast(err.message); } finally { busy(btn); }
+  });
+  [addr, city].forEach((el) => el.addEventListener('input', () => { coords = null; status.textContent = ''; }));
+  return async () => {
+    if (coords) return coords;
+    const a = addr.value.trim(), c = city.value.trim();
+    if (!a || !c) throw new Error('La ubicación es obligatoria: indica la dirección y la ciudad del negocio');
+    const g = (await geocode(`${a}, ${c}`)) || (await geocode(c));
+    if (!g) throw new Error('No encontramos esa dirección. Revísala o pulsa «Usar mi ubicación actual».');
+    coords = { lat: g.lat, lng: g.lng }; ok('Dirección encontrada en el mapa');
+    return coords;
+  };
+}
+
+async function viewNeedLocation(b) {
+  mount(`<div class="auth-wrap"><div class="auth glass reveal" style="width:min(560px,100%)">
+    <div class="empty-icon">${I.pin}</div>
+    <h1>Añade la ubicación de tu negocio</h1>
+    <p class="muted" style="text-align:center;margin:8px 0 20px">Es obligatoria para las empresas: así los clientes te encuentran cuando buscan cerca. Solo tienes que hacerlo una vez.</p>
+    <form class="stack" id="locForm">
+      ${locFieldsHTML(b.address, b.city)}
+      <div class="error" id="locErr"></div>
+      <button class="btn primary" style="width:100%" id="locBtn">Guardar ubicación y continuar</button>
+    </form>
+    <p class="subtle" style="text-align:center;margin-top:14px"><a href="#" id="locOut" style="color:var(--accent)">Cerrar sesión</a></p>
+  </div></div>`);
+  const getCoords = bindLocFields($('#locForm'));
+  $('#locOut').addEventListener('click', async (e) => { e.preventDefault(); await store.signOut(); me = null; go('#/'); });
+  $('#locForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); $('#locErr').textContent = ''; busy($('#locBtn'), 'Comprobando la dirección…');
+    try {
+      const c = await getCoords();
+      const f = new FormData(e.target);
+      await store.saveBusiness({ address: f.get('address').trim(), city: f.get('city').trim(), lat: c.lat, lng: c.lng });
+      await refreshBusinesses(); toast('Ubicación guardada'); route();
+    } catch (err) { $('#locErr').textContent = err.message; busy($('#locBtn')); }
   });
 }
 
@@ -1096,8 +1220,8 @@ async function viewRegister(_, params) {
         <label class="field"><span>Nombre de la empresa</span><input class="input" name="bname"></label>
         <div class="form-grid" style="grid-template-columns:1fr 1fr">
           <label class="field"><span>Categoría</span><select class="input" name="category">${CATEGORIES.map((c) => `<option value="${c.id}">${c.name}</option>`).join('')}</select></label>
-          <label class="field"><span>Ciudad</span><input class="input" name="city"></label>
         </div>
+        ${locFieldsHTML('', '', false, role !== 'empresa')}
       </div>
       <label class="field"><span>Email</span><input class="input" name="email" type="email" required autocomplete="email"></label>
       <label class="field"><span>Teléfono</span><input class="input" name="phone" type="tel" required autocomplete="tel" placeholder="+34 600 000 000"></label>
@@ -1107,17 +1231,25 @@ async function viewRegister(_, params) {
     </form>
     <p class="muted" style="text-align:center;margin:18px 0 0;font-size:14px">¿Ya tienes cuenta? <a href="#/entrar?rol=${role}" style="color:var(--accent);font-weight:600">Inicia sesión</a></p>
   </div></div>`);
+  const getCoords = bindLocFields($('#regForm'));
   bindSegmented($('#roleSeg'), (v) => {
     role = v; $('#bizFields').classList.toggle('hidden', v !== 'empresa');
+    $$('#bizFields [data-req]').forEach((x) => (x.required = v === 'empresa'));
     $('#nameLbl').textContent = v === 'empresa' ? 'Tu nombre (responsable)' : 'Nombre';
   });
   $('#regForm').addEventListener('submit', async (e) => {
     e.preventDefault(); const f = new FormData(e.target); $('#rErr').textContent = '';
     if (role === 'empresa' && !f.get('bname').trim()) return ($('#rErr').textContent = 'Indica el nombre de la empresa');
     if (f.get('phone').replace(/\D/g, '').length < 9) return ($('#rErr').textContent = 'Introduce un teléfono válido');
+    let coords = null;
+    if (role === 'empresa') {
+      busy($('#rBtn'), 'Comprobando la dirección…');
+      try { coords = await getCoords(); } catch (err) { busy($('#rBtn')); return ($('#rErr').textContent = err.message); }
+    }
+    busy($('#rBtn'));
     busy($('#rBtn'), 'Creando tu cuenta…');
     try {
-      me = await store.signUp({ role, name: f.get('name').trim(), email: f.get('email').trim(), phone: f.get('phone').trim(), password: f.get('pw'), business: role === 'empresa' ? { name: f.get('bname').trim(), category: f.get('category'), city: f.get('city').trim() } : null });
+      me = await store.signUp({ role, name: f.get('name').trim(), email: f.get('email').trim(), phone: f.get('phone').trim(), password: f.get('pw'), business: role === 'empresa' ? { name: f.get('bname').trim(), category: f.get('category'), city: f.get('city').trim(), address: f.get('address').trim(), lat: coords.lat, lng: coords.lng } : null });
       await refreshBusinesses(); toast('Cuenta creada');
       go(role === 'empresa' ? '#/panel' : '#/');
     } catch (err) {

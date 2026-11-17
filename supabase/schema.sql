@@ -35,6 +35,9 @@ create table if not exists public.businesses (
   created_at timestamptz not null default now()
 );
 create index if not exists businesses_category_idx on public.businesses(category);
+-- Ubicación del negocio (obligatoria para las empresas en la web; sirve para buscar "cerca de mí")
+alter table public.businesses add column if not exists lat double precision;
+alter table public.businesses add column if not exists lng double precision;
 
 create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
@@ -178,9 +181,10 @@ begin
   insert into profiles (id, role, name, email, phone)
   values (new.id, case when lower(new.email) = (select lower(admin_email) from app_settings where id = 1) and (select lower(admin_email) from app_settings where id = 1) <> '' then 'admin' when m->>'role' = 'empresa' then 'empresa' else 'cliente' end, coalesce(m->>'name', ''), new.email, coalesce(m->>'phone', ''));
   if m->>'role' = 'empresa' and lower(new.email) <> (select lower(admin_email) from app_settings where id = 1) then
-    insert into businesses (owner_id, name, category, city, phone, email)
+    insert into businesses (owner_id, name, category, city, address, lat, lng, phone, email)
     values (new.id, coalesce(nullif(m->>'business_name', ''), m->>'name', 'Mi empresa'), coalesce(nullif(m->>'category', ''), 'otros'),
-            coalesce(m->>'city', ''), coalesce(m->>'phone', ''), new.email);
+            coalesce(m->>'city', ''), coalesce(m->>'address', ''), nullif(m->>'lat', '')::double precision, nullif(m->>'lng', '')::double precision,
+            coalesce(m->>'phone', ''), new.email);
   end if;
   return new;
 end $$;
